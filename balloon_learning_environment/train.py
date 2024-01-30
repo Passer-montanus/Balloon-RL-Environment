@@ -90,13 +90,14 @@ def main(_) -> None:
       FLAGS.agent,
       env.action_space.n,
       observation_shape=env.observation_space.shape)
+    #observation_shape=env.observation_space.shape
 
   base_dir = osp.join(FLAGS.base_dir, FLAGS.agent, str(FLAGS.run_number))
   train_lib.run_training_loop(
       base_dir,
       env,
       agent,
-      FLAGS.num_iterations,
+      3000,
       FLAGS.max_episode_length,
       collector_constructors,
       render_period=FLAGS.render_period,

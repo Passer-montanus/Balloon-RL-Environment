@@ -26,6 +26,7 @@ from balloon_learning_environment.env import balloon_arena
 from balloon_learning_environment.env import features
 from balloon_learning_environment.env import generative_wind_field  # pylint: disable=unused-import
 from balloon_learning_environment.env import simulator_data
+from balloon_learning_environment.env import forbidden_area
 from balloon_learning_environment.env import wind_field
 from balloon_learning_environment.env.balloon import balloon
 from balloon_learning_environment.env.balloon import control
@@ -74,7 +75,13 @@ def perciatelli_reward_function(
   balloon_state = simulator_state.balloon_state
   x, y = balloon_state.x, balloon_state.y
   radius = units.Distance(km=station_keeping_radius_km)
+  punish_dropoff = 0.4
+  punish_halflife = 100
 
+    #TODO WARNING AREA PUNISHMENT
+  punish_dropoff_warning = 1
+  #TODO NOT WARNING AREA PUNISHMENT
+  punish_halflife_warining = 100
   # x, y are in meters.
   distance = units.relative_distance(x, y)
 
@@ -87,6 +94,48 @@ def perciatelli_reward_function(
     # ln(0.5) is approximately -0.69314718056.
     reward = reward_dropoff * math.exp(
         -0.69314718056 / reward_halflife * (distance - radius).kilometers)
+
+  Farea_rewards = 0
+
+  # Entering Forbidden Area 1
+  Farea1_dist = balloon_state.Farea_dist1
+  Farea1_r = units.Distance(km = balloon_state.Farea1_r)
+  if (Farea1_r * 14/30) < Farea1_dist<=Farea1_r:
+    Farea_rewards += punish_dropoff * math.exp(-0.69314718056 / punish_halflife * (Farea1_dist - (Farea1_r * 14/30)).kilometers)
+  elif (Farea1_r * 4/30) < Farea1_dist <= (Farea1_r * 14/30):
+    Farea_rewards += punish_dropoff_warning * math.exp(
+      -0.69314718056 / punish_halflife_warining * (Farea1_dist - (Farea1_r * 14 / 30)).kilometers)
+  elif Farea1_dist <= (Farea1_r * 4/30):
+    #TODO SHOTTING AREA1 PUNISHMENT
+    Farea_rewards = 100
+
+  # Entering Forbidden Area 2
+  Farea2_dist = balloon_state.Farea_dist2
+  Farea2_r = units.Distance(km = balloon_state.Farea2_r)
+  if (Farea2_r * 14 / 30) < Farea2_dist<=Farea2_r:
+    Farea_rewards += punish_dropoff * math.exp(
+      -0.69314718056 / punish_halflife * (Farea2_dist - (Farea2_r * 14 / 30)).kilometers)
+  elif (Farea2_r * 4 / 30) < Farea2_dist <= (Farea2_r * 14 / 30):
+    Farea_rewards += punish_dropoff_warning * math.exp(
+      -0.69314718056 / punish_halflife_warining * (Farea2_dist - (Farea2_r * 14 / 30)).kilometers)
+  elif Farea2_dist <= (Farea2_r * 4 / 30):
+    # TODO SHOTTING AREA2 PUNISHMENT
+    Farea_rewards = 100
+
+  # Entering Forbidden Area 3
+  Farea3_dist = balloon_state.Farea_dist3
+  Farea3_r =units.Distance(km =  balloon_state.Farea3_r)
+  if (Farea3_r * 14 / 30) < Farea3_dist<=Farea3_r:
+    Farea_rewards += punish_dropoff * math.exp(
+       -0.69314718056 / punish_halflife * (Farea3_dist - (Farea3_r * 14 / 30)).kilometers)
+  elif (Farea3_r * 4 / 30) < Farea3_dist <= (Farea3_r * 14 / 30):
+      Farea_rewards += punish_dropoff_warning * math.exp(
+        -0.69314718056 / punish_halflife_warining * (Farea3_dist - (Farea3_r * 14 / 30)).kilometers)
+  elif Farea3_dist <= (Farea3_r * 4 / 30):
+    # TODO SHOTTING AREA3 PUNISHMENT
+      Farea_rewards = 100
+
+  reward-=Farea_rewards
 
   # Power regularization. Only applied when using more power (going down)
   # and there isn't excess energy available.
@@ -172,7 +221,7 @@ class BalloonEnv(gym.Env):
     simulator_state = self.arena.get_simulator_state()
 
     if self._renderer is not None:
-      self._renderer.step(simulator_state)
+      self._renderer.step(simulator_state,obs=observation)
 
     # Prepare reward
     reward = self._reward_fn(simulator_state)
@@ -215,7 +264,7 @@ class BalloonEnv(gym.Env):
 
     if self._renderer is not None:
       self._renderer.reset()
-      self._renderer.step(self.arena.get_simulator_state())
+      self._renderer.step(self.arena.get_simulator_state(),obs=observation)
 
     if return_info:
       simulator_state = self.get_simulator_state()

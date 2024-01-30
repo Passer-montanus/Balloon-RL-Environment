@@ -58,6 +58,7 @@ class DQNAgent(agent.Agent, dqn_agent.JaxDQNAgent):
         self,
         num_actions,
         observation_shape=observation_shape,
+        #observation_shape=observation_shape,
         observation_dtype=jnp.float32,
         stack_size=1,
         network=functools.partial(network, is_dopamine=True),

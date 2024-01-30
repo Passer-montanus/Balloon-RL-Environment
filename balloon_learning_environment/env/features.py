@@ -172,13 +172,14 @@ class NamedPerciatelliFeatures:
   def __init__(self, features: np.ndarray):
     # Some tests might try to pass in wrongly-sized observations. We make sure
     # that any code using this method has the right number of features.
-    assert len(features) == 1099
-
-    self._winds = features[16:]
+                #TODO I CHANGE THIS NUMBER FROM 1099 TO 1102 (ALANVLEN)
+    assert len(features) == 1111
+    # TODO I CHANGE THIS NUMBER FROM 16 TO 19 (ALANVLEN)
+    self._winds = features[28:]
     assert len(self._winds) % 3 == 0, 'Unexpected number of wind features.'
     self.num_pressure_levels = len(self._winds) // 3
-
-    ambient_features = features[:16]
+    # TODO I CHANGE THIS NUMBER FROM 16 TO 19 (ALANVLEN)
+    ambient_features = features[:28]
     # TODO(joshgreaves): Convert these into the right data types/units.
     #   Specifically, implement the reverse map for all of these. This also
     #   applies to the wind column data.
@@ -220,6 +221,21 @@ class NamedPerciatelliFeatures:
     self.has_excess_energy = ambient_features[13]
     self.descent_cost = ambient_features[14]
     self.internal_pressure_ratio = ambient_features[15]
+    # TODO I ADD EXTRA 6 Features (ALANVLEN)
+    self.Farea1_dist=ambient_features[16]
+    self.Farea1_r = ambient_features[17]
+    self.Farea2_dist = ambient_features[18]
+    self.Farea2_r = ambient_features[19]
+    self.Farea3_dist = ambient_features[20]
+    self.Farea3_r = ambient_features[21]
+    #TODO ADD additional 6 Features of turnning angle to the forbidden area
+    self.Farea1_cos = ambient_features[22]
+    self.Farea1_sin = ambient_features[23]
+    self.Farea2_cos = ambient_features[24]
+    self.Farea2_sin = ambient_features[25]
+    self.Farea3_cos = ambient_features[26]
+    self.Farea3_sin = ambient_features[27]
+
 
   def wind_at(self, level: int) -> PerciatelliWindFeature:
     """Returns the (magnitude, bearing, uncertainty) triple at the given level.
@@ -290,12 +306,14 @@ class PerciatelliFeatureConstructor(FeatureConstructor):
 
     # 3 features per pressure level in the encoding, which there are twice as
     # many of as we use a relative encoding. Plus sixteen ambient variables.
-    self.num_features = 3 * (self.num_pressure_levels * 2 - 1) + 16
+    #TODO I modified the 16 to 19 need to be checked (ALANVLEN)
+    self.num_features = 3 * (self.num_pressure_levels * 2 - 1) + 28
 
     self.windgp = wind_gp.WindGP(forecast)
     self._atmosphere = atmosphere
     self._last_balloon_state = None
 
+  #TODO:Added the new observation but need to check (ALANVLEN), WINDGP also need to be changed
   def observe(self, observation: simulator_data.SimulatorObservation) -> None:
     """Observes the latest observation and updates the internal state."""
     self._last_balloon_state = observation.balloon_observation
@@ -303,7 +321,8 @@ class PerciatelliFeatureConstructor(FeatureConstructor):
                         observation.balloon_observation.y,
                         observation.balloon_observation.pressure,
                         observation.balloon_observation.time_elapsed,
-                        observation.wind_at_balloon)
+                        observation.wind_at_balloon,
+)
 
   def get_features(self) -> np.ndarray:
     """Returns the feature vector for the current balloon.
@@ -328,16 +347,16 @@ class PerciatelliFeatureConstructor(FeatureConstructor):
     self._add_wind_features(feature_vector)
 
     return feature_vector
-
+  #TODO change the range of distance to forbidden area(DONE)
   @property
   def observation_space(self) -> gym.spaces.Box:
     """Returns the observation space for this feature constructor."""
     # Most features are in [0, 1].
     low = np.zeros(self.num_features, dtype=np.float32)
     high = np.ones(self.num_features, dtype=np.float32)
-
+#TODO ADD Farea cos sin
     # The following features use sine or cosine, so are in [-1, 1]
-    trig_features = [3, 4, 5, 6]
+    trig_features = [3, 4, 5, 6, 22, 23, 24, 25, 26, 27]
     low[trig_features] = -1.0
 
     # The ACS pressure ratio feature is (pressure + superpressure) / pressure.
@@ -453,6 +472,39 @@ class PerciatelliFeatureConstructor(FeatureConstructor):
 
     # 15: Internal pressure ratio.
     feature_vector[15] = balloon_state.pressure_ratio
+    #16: Distance to the forbidden area in x,y and area's radius, however need to modify observation first
+    #TODO HERE IDK WHY IT NEED ADD 250 (ALANVLEN)
+    feature_vector[16] = transforms.squash_to_unit_interval(balloon_state.Farea_dist1.kilometers, 250)
+    feature_vector[17] = transforms.squash_to_unit_interval(
+      units.Distance(km=balloon_state.Farea1_r).kilometers, 250)
+
+    feature_vector[18] = transforms.squash_to_unit_interval(balloon_state.Farea_dist2.kilometers, 250)
+    feature_vector[19] = transforms.squash_to_unit_interval(
+      units.Distance(km=balloon_state.Farea2_r).kilometers, 250)
+
+    feature_vector[20] = transforms.squash_to_unit_interval(balloon_state.Farea_dist3.kilometers, 250)
+    feature_vector[21] = transforms.squash_to_unit_interval(
+      units.Distance(km=balloon_state.Farea3_r).kilometers, 250)
+      #22: Angle to each forbidden area in sin & cos
+      #TODO ADDing
+    angle_heading_to_Farea1 = math.atan2(
+      units.Distance(km=balloon_state.Farea1_x).kilometers-balloon_state.x.kilometers,
+      units.Distance(km=balloon_state.Farea1_y).kilometers-balloon_state.y.kilometers)
+    feature_vector[22] =math.sin(angle_heading_to_Farea1)
+    feature_vector[23] = math.cos(angle_heading_to_Farea1)
+
+    angle_heading_to_Farea2 = math.atan2(
+      units.Distance(km=balloon_state.Farea2_x).kilometers - balloon_state.x.kilometers,
+      units.Distance(km=balloon_state.Farea2_y).kilometers - balloon_state.y.kilometers)
+    feature_vector[24] = math.sin(angle_heading_to_Farea2)
+    feature_vector[25] = math.cos(angle_heading_to_Farea2)
+
+    angle_heading_to_Farea3 = math.atan2(
+      units.Distance(km=balloon_state.Farea3_x).kilometers - balloon_state.x.kilometers,
+      units.Distance(km=balloon_state.Farea3_y).kilometers - balloon_state.y.kilometers)
+    feature_vector[26] = math.sin(angle_heading_to_Farea3)
+    feature_vector[27] = math.cos(angle_heading_to_Farea3)
+
 
   def _add_wind_features(self, feature_vector: np.ndarray) -> None:
     """Adds all wind features to the feature vector.
@@ -465,7 +517,8 @@ class PerciatelliFeatureConstructor(FeatureConstructor):
       feature_vector: The feature vector to add the wind features to. They
         will be inserted into feature_vector[16:].
     """
-    feature_index = 16  # The end of the ambient features.
+    #TODO Here the idx also changed (ALANVLEN)
+    feature_index = 28  # The end of the ambient features.
 
     # Batch query the WindGP for the winds in the wind column.
     batch_query = np.zeros((self.num_pressure_levels, 4))

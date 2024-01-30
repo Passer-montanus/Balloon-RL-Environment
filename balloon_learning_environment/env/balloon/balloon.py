@@ -207,6 +207,40 @@ class BalloonState(object):
 
   upwelling_infrared: float = 250.0  # [W/m^2]
 
+  #Data about forbiddent area [start]
+  Farea1_x:float = 75
+  Farea1_y:float = 75
+  Farea1_r:float = 60
+
+  Farea2_x:float = 75
+  Farea2_y:float = 75
+  Farea2_r:float = 60
+
+  Farea3_x:float = 75
+  Farea3_y:float = 75
+  Farea3_r:float = 60
+
+  Farea_dist1:units.Distance=units.relative_distance(x-units.Distance(km=Farea1_x),
+                                                     y -units.Distance(km=Farea1_y))
+  Farea_dist2: units.Distance = units.relative_distance(x - units.Distance(km=Farea2_x),
+                                                        y - units.Distance(km=Farea2_y))
+  Farea_dist3: units.Distance = units.relative_distance(x - units.Distance(km=Farea3_x),
+                                                        y - units.Distance(km=Farea3_y))
+
+
+    #Data about forbiddent area [ end ]
+
+  '''# Data about the distance to the forbidden area [start]
+  Farea_dist_x: units.Distance=units.relative_distance(x-units.Distance(km=Farea_x),units.Distance(km=0))
+  Farea_dist_y: units.Distance = units.relative_distance(units.Distance(km=0),y - units.Distance(km=Farea_y))'''
+  '''Farea_dist_x: units.Distance = units.relative_distance(x - units.Distance(km=Farea_x),
+                                                         units.Distance(km=0) - units.Distance(km=Farea_y))
+  Farea_dist_y: units.Distance = units.relative_distance(units.Distance(km=0) - units.Distance(km=Farea_x),
+                                                         y - units.Distance(km=Farea_y))'''
+
+    # Data about the distance to the forbidden area [end]
+
+
   def __post_init__(self):
     self.power_safety_layer = power_safety.PowerSafetyLayer(
         self.latlng, self.date_time)
@@ -394,6 +428,29 @@ def _simulate_step_internal(
   state_changes['x'] = state.x + (wind_vector.u * stride)
   state_changes['y'] = state.y + (wind_vector.v * stride)
 
+    #TODO I made changes here (ALANVLEN)
+        ## Step 1.1: Distance to forbidden area changes with the wind
+
+  state_changes['Farea_dist1']  = units.relative_distance(
+      state_changes['x'] - units.Distance(km=state.Farea1_x),
+                                                        state_changes['y'] - units.Distance(km=state.Farea1_y))
+
+  state_changes['Farea_dist2']  = units.relative_distance(
+      state_changes['x'] - units.Distance(km=state.Farea2_x),
+      state_changes['y'] - units.Distance(km=state.Farea2_y))
+
+  state_changes['Farea_dist3']  = units.relative_distance(
+      state_changes['x'] - units.Distance(km=state.Farea3_x),
+      state_changes['y'] - units.Distance(km=state.Farea3_y))
+
+
+  '''state_changes['Farea_dist_x']  = units.relative_distance(state_changes['x']-units.Distance(km=state.Farea_x),units.Distance(km=0))
+  state_changes['Farea_dist_y'] = units.relative_distance(units.Distance(km=0),state_changes['y'] - units.Distance(km=state.Farea_y))'''
+
+  '''state_changes['Farea_dist_x'] = units.relative_distance(state_changes['x'] - units.Distance(km=state.Farea_x),
+                                                          units.Distance(km=0) - units.Distance(km=state.Farea_y))
+  state_changes['Farea_dist_y'] = units.relative_distance(units.Distance(km=0) - units.Distance(km=state.Farea_x),
+                                                          state_changes['y'] - units.Distance(km=state.Farea_y))'''
   ## Step 2: The balloon moves up and down based on the buoyancy of the flight
   # system 🦆.
 

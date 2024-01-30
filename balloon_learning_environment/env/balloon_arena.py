@@ -27,6 +27,7 @@ from typing import Callable, Optional, Union
 from balloon_learning_environment.env import features
 from balloon_learning_environment.env import simulator_data
 from balloon_learning_environment.env import wind_field
+from balloon_learning_environment.env import forbidden_area
 from balloon_learning_environment.env.balloon import balloon
 from balloon_learning_environment.env.balloon import control
 from balloon_learning_environment.env.balloon import stable_init
@@ -173,6 +174,9 @@ class BalloonArena(BalloonArenaInterface):
     self._balloon = self._initialize_balloon(start_date_time)
     assert self._balloon.state.status == balloon.BalloonStatus.OK
 
+
+
+
     self._rng, wind_field_key = jax.random.split(self._rng, 2)
     self._wind_field.reset(wind_field_key, start_date_time)
 
@@ -256,6 +260,11 @@ class BalloonArena(BalloonArenaInterface):
 
     pressure = sampling.sample_pressure(keys[3], self._atmosphere)
     upwelling_infrared = sampling.sample_upwelling_infrared(keys[4])
+
+    #TODO Initialize the forbidden area(ALANVLEN)
+    Farea = forbidden_area.Forbidden_area()
+    Farea_vectors = Farea.reset(seed=self._rng, xy= [x,y],target_r=units.Distance(km =50))
+
     b = balloon.Balloon(
         balloon.BalloonState(
             center_latlng=latlng,
@@ -263,7 +272,19 @@ class BalloonArena(BalloonArenaInterface):
             y=y,
             pressure=pressure,
             date_time=start_date_time,
-            upwelling_infrared=upwelling_infrared))
+            upwelling_infrared=upwelling_infrared,
+          Farea1_x=Farea_vectors[0][0],
+    Farea1_y = Farea_vectors[0][1],
+    Farea1_r = Farea_vectors[0][2],
+
+          Farea2_x=Farea_vectors[1][0],
+          Farea2_y=Farea_vectors[1][1],
+          Farea2_r=Farea_vectors[1][2],
+
+          Farea3_x=Farea_vectors[2][0],
+          Farea3_y=Farea_vectors[2][1],
+          Farea3_r=Farea_vectors[2][2],
+            ))
     stable_init.cold_start_to_stable_params(b.state, self._atmosphere)
     return b
 

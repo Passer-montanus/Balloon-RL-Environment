@@ -33,8 +33,8 @@ import gin
 import jax
 import numpy as np
 
-
-_PERCIATELLI_FEATURES_SHAPE = (1099,)  # Expected shape of Perciatelli features.
+#TODO CHANGE 1099 TO 1102
+_PERCIATELLI_FEATURES_SHAPE = (1111,)  # Expected shape of Perciatelli features.
 _HYSTERESIS = 100  # In Pascals.
 _STDDEV = 0.1666  # ~ 10 [Pa/min].
 

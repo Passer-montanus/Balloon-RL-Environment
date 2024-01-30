@@ -19,8 +19,9 @@ This is not the most efficient renderer, but it is convenient.
 """
 
 from typing import Iterable, Optional, Text, Union
-
 from balloon_learning_environment.env import simulator_data
+from balloon_learning_environment.env import balloon_arena
+from balloon_learning_environment.env import forbidden_area
 from balloon_learning_environment.env.rendering import renderer
 from flax.metrics import tensorboard
 from matplotlib import dates as mdates
@@ -30,7 +31,9 @@ from mpl_toolkits import mplot3d  # pylint: disable=unused-import
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.mplot3d import art3d
 import numpy as np
-
+from balloon_learning_environment.utils import units
+import matplotlib
+matplotlib.use('Qt5Agg')
 
 class MatplotlibRenderer(renderer.Renderer):
   """Contains functions for rendering the simulator state with matplotlib."""
@@ -60,21 +63,37 @@ class MatplotlibRenderer(renderer.Renderer):
                    width='37.5%',
                    height='37.5%',
                    loc='upper left'))
+    self._axes.append(
+        inset_axes(self._axes[0],
+                   width='15%',
+                   height='25%',
+                   loc='lower right'))
+
 
   def reset(self) -> None:
     self._trajectory = list()
     self._charge = list()
     self._datetime = list()
+    self.Farea_vector1 = [75, 75, 60]
+    self.Farea_vector1 = [75, 75, 60]
+    self.Farea_vector1 = [75, 75, 60]
+    self.obs = np.zeros((1105,),dtype=np.float32)
 
-  def step(self, state: simulator_data.SimulatorState) -> None:
+  def step(self, state: simulator_data.SimulatorState,obs:np.ndarray) -> None:
     balloon_state = state.balloon_state
     altitude = state.atmosphere.at_pressure(balloon_state.pressure).height
     self._charge.append(balloon_state.battery_soc * 100.0)
     self._datetime.append(balloon_state.date_time)
+    self.Farea_vector1=[balloon_state.Farea1_x, balloon_state.Farea1_y, balloon_state.Farea1_r]
+    self.Farea_vector2=[balloon_state.Farea2_x, balloon_state.Farea2_y, balloon_state.Farea2_r]
+    self.Farea_vector3=[balloon_state.Farea3_x, balloon_state.Farea3_y, balloon_state.Farea3_r]
+    self.obs=obs
     self._trajectory.append(
         np.asarray([balloon_state.x.kilometers,
                     balloon_state.y.kilometers,
                     altitude.kilometers]))
+
+
 
   def render(self,
              mode: Text,
@@ -100,9 +119,10 @@ class MatplotlibRenderer(renderer.Renderer):
     for ax in self._axes:
       ax.clear()
     flight_path = np.vstack(self._trajectory)
-    self._plot_3d_flight_path(flight_path)
-    self._plot_inset(flight_path)
+    self._plot_3d_flight_path(flight_path,Farea_matrix=[self.Farea_vector1, self.Farea_vector2, self.Farea_vector3])
+    self._plot_inset(flight_path,Farea_matrix=[self.Farea_vector1, self.Farea_vector2, self.Farea_vector3])
     self._plot_power()
+    self._plot_Obs_Farea(obs=self.obs,Farea_matrix=[self.Farea_vector1, self.Farea_vector2, self.Farea_vector3])
 
     if mode == 'human':
       plt.pause(0.001)  # Renders the image and runs the GUI loop.
@@ -124,7 +144,7 @@ class MatplotlibRenderer(renderer.Renderer):
   def render_modes(self) -> Iterable[Text]:
     return ['human', 'rgb_array', 'tensorboard']
 
-  def _plot_3d_flight_path(self, flight_path: np.ndarray):
+  def _plot_3d_flight_path(self, flight_path: np.ndarray,Farea_matrix:np.ndarray):
     ax = self._axes[0]
 
     # TODO(joshgreaves): Longitude/Latitude isn't quite right
@@ -156,6 +176,110 @@ class MatplotlibRenderer(renderer.Renderer):
                         fill=False)
     ax.add_patch(circle)
     art3d.pathpatch_2d_to_3d(circle, z=self._altitude_lims[0], zdir='z')
+
+    #Plot the Forbiddent Area1
+    Farea_state1 = Farea_matrix[0]
+
+    ax.scatter3D(
+        Farea_state1[0],
+        Farea_state1[1],
+        self._altitude_lims[0],
+        c='r',
+        lw=1.0,
+        marker='x',
+        s=25)
+
+    Farea_circle = plt.Circle((Farea_state1[0], Farea_state1[1]),
+                        Farea_state1[2],
+                        edgecolor='g',
+                        ls='--',
+                        fill=False)
+    ax.add_patch(Farea_circle)
+    art3d.pathpatch_2d_to_3d(Farea_circle, z=self._altitude_lims[0], zdir='z')
+    Farea_circle_w = plt.Circle((Farea_state1[0], Farea_state1[1]),
+                              Farea_state1[2]*14/30,
+                              edgecolor='b',
+                              ls='-.',
+                              fill=False)
+    ax.add_patch(Farea_circle_w)
+    art3d.pathpatch_2d_to_3d(Farea_circle_w, z=self._altitude_lims[0], zdir='z')
+    Farea_circle_s = plt.Circle((Farea_state1[0], Farea_state1[1]),
+                                Farea_state1[2]*4/30,
+                                edgecolor='r',
+                                ls='-',
+                                fill=False)
+    ax.add_patch(Farea_circle_s)
+    art3d.pathpatch_2d_to_3d(Farea_circle_s, z=self._altitude_lims[0], zdir='z')
+
+
+    # Plot the Forbiddent Area2
+    Farea_state2 = Farea_matrix[1]
+
+    ax.scatter3D(
+        Farea_state2[0],
+        Farea_state2[1],
+        self._altitude_lims[0],
+        c='r',
+        lw=1.0,
+        marker='x',
+        s=25)
+
+    Farea_circle1 = plt.Circle((Farea_state2[0], Farea_state2[1]),
+                              Farea_state2[2],
+                              edgecolor='g',
+                              ls='--',
+                              fill=False)
+    ax.add_patch(Farea_circle1)
+    art3d.pathpatch_2d_to_3d(Farea_circle1, z=self._altitude_lims[0], zdir='z')
+    Farea_circle1_w = plt.Circle((Farea_state2[0], Farea_state2[1]),
+                                Farea_state2[2]*14/30,
+                                edgecolor='b',
+                                ls='-.',
+                                fill=False)
+    ax.add_patch(Farea_circle1_w)
+    art3d.pathpatch_2d_to_3d(Farea_circle1_w, z=self._altitude_lims[0], zdir='z')
+    Farea_circle1_s = plt.Circle((Farea_state2[0], Farea_state2[1]),
+                                Farea_state2[2]*4/30,
+                                edgecolor='r',
+                                ls='-',
+                                fill=False)
+    ax.add_patch(Farea_circle1_s)
+    art3d.pathpatch_2d_to_3d(Farea_circle1_s, z=self._altitude_lims[0], zdir='z')
+
+    # Plot the Forbiddent Area2
+    Farea_state3 = Farea_matrix[2]
+
+    ax.scatter3D(
+        Farea_state3[0],
+        Farea_state3[1],
+        self._altitude_lims[0],
+        c='r',
+        lw=1.0,
+        marker='x',
+        s=25)
+
+    Farea_circle2 = plt.Circle((Farea_state3[0], Farea_state3[1]),
+                               Farea_state3[2],
+                               edgecolor='g',
+                               ls='--',
+                               fill=False)
+    ax.add_patch(Farea_circle2)
+    art3d.pathpatch_2d_to_3d(Farea_circle2, z=self._altitude_lims[0], zdir='z')
+    Farea_circle2_w = plt.Circle((Farea_state3[0], Farea_state3[1]),
+                                 Farea_state3[2]*14/30,
+                                 edgecolor='b',
+                                 ls='-.',
+                                 fill=False)
+    ax.add_patch(Farea_circle2_w)
+    art3d.pathpatch_2d_to_3d(Farea_circle2_w, z=self._altitude_lims[0], zdir='z')
+    Farea_circle2_s = plt.Circle((Farea_state3[0], Farea_state3[1]),
+                                 Farea_state3[2]*4/30,
+                                 edgecolor='r',
+                                 ls='-',
+                                 fill=False)
+    ax.add_patch(Farea_circle2_s)
+    art3d.pathpatch_2d_to_3d(Farea_circle2_s, z=self._altitude_lims[0], zdir='z')
+
 
     # Draw the trajectory
     ax.plot3D(flight_path[:, 0],
@@ -189,19 +313,102 @@ class MatplotlibRenderer(renderer.Renderer):
 
     ax.plot(self._datetime, self._charge, color='C0')
 
-  def _plot_inset(self, flight_path: np.ndarray):
+  def _plot_inset(self, flight_path: np.ndarray,Farea_matrix:np.ndarray):
     ax = self._axes[2]
 
     ax.set_xlim(self._x_lims)
     ax.set_ylim(self._y_lims)
     ax.set_xticks([self._x_lims[0], 0.0, self._x_lims[1]])
     ax.set_yticks([self._y_lims[0], 0.0, self._y_lims[1]])
-
     circle = plt.Circle([self._target_x, self._target_y],
                         self._target_radius,
                         edgecolor='k',
                         ls='--',
                         fill=False)
     ax.add_patch(circle)
+        #Plot forbiddent area1
+    Farea_state1 = Farea_matrix[0]
+    Farea_circle = plt.Circle([Farea_state1[0], Farea_state1[1]],
+                        Farea_state1[2],
+                        edgecolor='g',
+                        ls='--',
+                        fill=False)
+    ax.add_patch(Farea_circle)
+    Farea_circle_w = plt.Circle([Farea_state1[0], Farea_state1[1]],
+                              Farea_state1[2] * 14/30,
+                              edgecolor='b',
+                              ls='-.',
+                              fill=False)
+    ax.add_patch(Farea_circle_w)
+    Farea_circle_s = plt.Circle([Farea_state1[0], Farea_state1[1]],
+                                Farea_state1[2] * 4 / 30,
+                                edgecolor='r',
+                                ls='-',
+                                fill=False)
+    ax.add_patch(Farea_circle_s)
     ax.plot(flight_path[:, 0], flight_path[:, 1], color='C0')
     ax.scatter(flight_path[-1, 0], flight_path[-1, 1], color='C0')
+    # Plot forbiddent area2
+    Farea_state2 = Farea_matrix[1]
+    Farea_circle1 = plt.Circle([Farea_state2[0], Farea_state2[1]],
+                              Farea_state2[2],
+                              edgecolor='g',
+                              ls='--',
+                              fill=False)
+    ax.add_patch(Farea_circle1)
+    Farea_circle1_w = plt.Circle([Farea_state2[0], Farea_state2[1]],
+                                Farea_state2[2] * 14 / 30,
+                                edgecolor='b',
+                                ls='-.',
+                                fill=False)
+    ax.add_patch(Farea_circle1_w)
+    Farea_circle1_s = plt.Circle([Farea_state2[0], Farea_state2[1]],
+                                Farea_state2[2] * 4 / 30,
+                                edgecolor='r',
+                                ls='-',
+                                fill=False)
+    ax.add_patch(Farea_circle1_s)
+    ax.plot(flight_path[:, 0], flight_path[:, 1], color='C0')
+    ax.scatter(flight_path[-1, 0], flight_path[-1, 1], color='C0')
+    # Plot forbiddent area3
+    Farea_state3 = Farea_matrix[2]
+    Farea_circle2 = plt.Circle([Farea_state3[0], Farea_state3[1]],
+                              Farea_state3[2],
+                              edgecolor='g',
+                              ls='--',
+                              fill=False)
+    ax.add_patch(Farea_circle2)
+    Farea_circle2_w = plt.Circle([Farea_state3[0], Farea_state3[1]],
+                                 Farea_state3[2] * 14 / 30,
+                                 edgecolor='b',
+                                 ls='-.',
+                                 fill=False)
+    ax.add_patch(Farea_circle2_w)
+    Farea_circle2_s = plt.Circle([Farea_state3[0], Farea_state3[1]],
+                                 Farea_state3[2] * 4 / 30,
+                                 edgecolor='r',
+                                 ls='-',
+                                 fill=False)
+    ax.add_patch(Farea_circle2_s)
+    ax.plot(flight_path[:, 0], flight_path[:, 1], color='C0')
+    ax.scatter(flight_path[-1, 0], flight_path[-1, 1], color='C0')
+  #TODO Plot the observation of forbiddent area
+  def _plot_Obs_Farea(self,obs:np.ndarray, Farea_matrix:np.ndarray):
+    ax = self._axes[3]
+    ax.set_xlim([0.0, 110])
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.text(2, 0.05, 'OBS')
+    ax.text(2,0.04,'Farea_dist1:')
+    ax.text(2, 0.03, obs[16])
+    ax.text(2, 0.02, 'Farea_dist1_r')
+    ax.text(2, 0.01, obs[17])
+    ax.text(2, 0, 'Farea_dist2')
+    ax.text(2, -0.01, obs[18])
+    ax.text(2, -0.02, 'Farea_dist2_r')
+    ax.text(2, -0.03, obs[19])
+    ax.text(2, -0.04, 'Farea_dist3')
+    ax.text(2, -0.05, obs[20])
+    ax.text(2, -0.06, 'Farea_dist3_r')
+    ax.text(2, -0.07, obs[21])
+    ax.plot()
